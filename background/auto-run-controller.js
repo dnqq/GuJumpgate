@@ -26,12 +26,7 @@
       getState,
       hasSavedNodeProgress,
       isAddPhoneAuthFailure,
-      isCloudCheckoutAlreadyPaidFailure,
-      isGpcTaskEndedFailure,
-      isHostedCheckoutGenericErrorFailure,
-      isHostedCheckoutVerificationResendLimitFailure,
       isPhoneSmsPlatformRateLimitFailure,
-      isPlusCheckoutNonFreeTrialFailure,
       isRestartCurrentAttemptError,
       isStep4Route405RecoveryLimitFailure,
       isSignupUserAlreadyExistsFailure,
@@ -523,7 +518,7 @@
         const currentRoundState = await getState();
         const keepSameEmailUntilAddPhone = autoRunSkipFailures && shouldKeepCustomMailProviderPoolEmail(currentRoundState);
         const maxKeepSameEmailAttemptsForRound = AUTO_RUN_MAX_KEEP_SAME_EMAIL_RETRIES_PER_ROUND + 1;
-        const maxAttemptsForRound = autoRunSkipFailures || autoRunRetryNonFreeTrial || autoRunRetryPaypalCallback
+        const maxAttemptsForRound = autoRunSkipFailures
           ? (keepSameEmailUntilAddPhone ? maxKeepSameEmailAttemptsForRound : AUTO_RUN_MAX_RETRIES_PER_ROUND + 1)
           : Math.max(AUTO_RUN_MAX_RETRIES_PER_ROUND + 1, attemptRun);
 
@@ -561,31 +556,7 @@
               vpsUrl: prevState.vpsUrl,
               vpsPassword: prevState.vpsPassword,
               customPassword: prevState.customPassword,
-              plusModeEnabled: prevState.plusModeEnabled,
-              plusPaymentMethod: prevState.plusPaymentMethod,
-              plusAccountAccessStrategy: prevState.plusAccountAccessStrategy,
-              plusCheckoutMode: prevState.plusCheckoutMode,
-              plusCheckoutProfiles: prevState.plusCheckoutProfiles,
-              plusHostedCheckoutOauthDelaySeconds: prevState.plusHostedCheckoutOauthDelaySeconds,
-              hostedCheckoutVerificationPopupDelaySeconds: prevState.hostedCheckoutVerificationPopupDelaySeconds,
-              hostedCheckoutVerificationUrl: prevState.hostedCheckoutVerificationUrl,
-              hostedCheckoutPhoneNumber: prevState.hostedCheckoutPhoneNumber,
-              hostedCheckoutSmsPoolText: prevState.hostedCheckoutSmsPoolText,
-              hostedCheckoutSmsPoolUsage: prevState.hostedCheckoutSmsPoolUsage,
-              hostedCheckoutSmsPoolAutoDisableEnabled: prevState.hostedCheckoutSmsPoolAutoDisableEnabled,
-              hostedCheckoutFirstDirectResendEnabled: prevState.hostedCheckoutFirstDirectResendEnabled,
-              hostedCheckoutFirstResendWaitSeconds: prevState.hostedCheckoutFirstResendWaitSeconds,
-              hostedCheckoutSubsequentResendWaitSeconds: prevState.hostedCheckoutSubsequentResendWaitSeconds,
-              hostedCheckoutVerificationResendMaxAttempts: prevState.hostedCheckoutVerificationResendMaxAttempts,
-              hostedCheckoutVerificationPollAttempts: prevState.hostedCheckoutVerificationPollAttempts,
-              hostedCheckoutVerificationPollIntervalSeconds: prevState.hostedCheckoutVerificationPollIntervalSeconds,
-              paypalEmail: prevState.paypalEmail,
-              paypalPassword: prevState.paypalPassword,
-              paypalAccounts: prevState.paypalAccounts,
-              currentPayPalAccountId: prevState.currentPayPalAccountId,
               autoRunSkipFailures: prevState.autoRunSkipFailures,
-              autoRunRetryNonFreeTrial: prevState.autoRunRetryNonFreeTrial,
-              autoRunRetryPaypalCallback: prevState.autoRunRetryPaypalCallback,
               autoRunFallbackThreadIntervalMinutes: prevState.autoRunFallbackThreadIntervalMinutes,
               autoRunDelayEnabled: prevState.autoRunDelayEnabled,
               autoRunDelayMinutes: prevState.autoRunDelayMinutes,
@@ -704,57 +675,19 @@
               && !blockedByPhoneNoSupply
               && typeof isAddPhoneAuthFailure === 'function'
               && isAddPhoneAuthFailure(err);
-            const blockedByPlusNonFreeTrial = typeof isPlusCheckoutNonFreeTrialFailure === 'function'
-              && isPlusCheckoutNonFreeTrialFailure(err);
-            const blockedByGpcTaskEnded = typeof isGpcTaskEndedFailure === 'function'
-              ? isGpcTaskEndedFailure(err)
-              : /GPC_TASK_ENDED::/i.test(err?.message || String(err || ''));
-            const blockedByHostedCheckoutGenericError = typeof isHostedCheckoutGenericErrorFailure === 'function'
-              ? isHostedCheckoutGenericErrorFailure(err)
-              : /HOSTED_CHECKOUT_GENERIC_ERROR::/i.test(err?.message || String(err || ''));
-            const blockedByHostedCheckoutCardFallback = typeof isHostedCheckoutCardFallbackFailure === 'function'
-              ? isHostedCheckoutCardFallbackFailure(err)
-              : /HOSTED_CHECKOUT_CARD_FALLBACK::/i.test(err?.message || String(err || ''));
-            const blockedByHostedCheckoutVerificationResendLimit = typeof isHostedCheckoutVerificationResendLimitFailure === 'function'
-              ? isHostedCheckoutVerificationResendLimitFailure(err)
-              : /HOSTED_CHECKOUT_VERIFICATION_RESEND_LIMIT::/i.test(err?.message || String(err || ''));
-            const blockedByCloudCheckoutAlreadyPaid = typeof isCloudCheckoutAlreadyPaidFailure === 'function'
-              ? isCloudCheckoutAlreadyPaidFailure(err)
-              : /\buser\s+is\s+already\s+paid\b|already\s+(?:paid|subscribed)/i.test(err?.message || String(err || ''));
             const blockedBySignupUserAlreadyExists = typeof isSignupUserAlreadyExistsFailure === 'function'
               && !keepSameEmailUntilAddPhone
               && isSignupUserAlreadyExistsFailure(err);
             const blockedByStep4Route405 = typeof isStep4Route405RecoveryLimitFailure === 'function'
               && isStep4Route405RecoveryLimitFailure(err);
-            const maxPlusNonFreeTrialAttempts = AUTO_RUN_MAX_RETRIES_PER_ROUND + 1;
-            const retryablePlusNonFreeTrial = blockedByPlusNonFreeTrial
-              && autoRunRetryNonFreeTrial
-              && attemptRun < maxPlusNonFreeTrialAttempts;
-            const retryableHostedCheckoutGenericError = blockedByHostedCheckoutGenericError
-              && autoRunRetryPaypalCallback
-              && attemptRun < maxPlusNonFreeTrialAttempts;
-            const retryableHostedCheckoutCardFallback = blockedByHostedCheckoutCardFallback
-              && attemptRun < maxPlusNonFreeTrialAttempts;
             const canRetry = !blockedByAddPhone
               && !blockedByPhoneNoSupply
-              && !blockedByPlusNonFreeTrial
-              && !blockedByGpcTaskEnded
-              && !blockedByHostedCheckoutGenericError
-              && !blockedByHostedCheckoutCardFallback
-              && !blockedByHostedCheckoutVerificationResendLimit
-              && !blockedByCloudCheckoutAlreadyPaid
               && !blockedBySignupUserAlreadyExists
               && autoRunSkipFailures
               && attemptRun < maxAttemptsForRound;
             const reachedKeepSameEmailRetryLimit = keepSameEmailUntilAddPhone
               && !blockedByAddPhone
               && !blockedByPhoneNoSupply
-              && !blockedByPlusNonFreeTrial
-              && !blockedByGpcTaskEnded
-              && !blockedByHostedCheckoutGenericError
-              && !blockedByHostedCheckoutCardFallback
-              && !blockedByHostedCheckoutVerificationResendLimit
-              && !blockedByCloudCheckoutAlreadyPaid
               && !blockedBySignupUserAlreadyExists
               && !blockedByStep4Route405
               && autoRunSkipFailures
@@ -763,198 +696,6 @@
             await setState({
               autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
             });
-
-            if (retryablePlusNonFreeTrial) {
-              const retryIndex = attemptRun;
-              await addLog(`第 ${targetRun}/${totalRuns} 轮第 ${attemptRun} 次尝试没有 Plus 免费试用资格：${reason}`, 'warn');
-              cancelPendingCommands('当前尝试因无免费试用资格已放弃。');
-              await broadcastStopToContentScripts();
-              await broadcastAutoRunStatus('retrying', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId,
-              });
-              forceFreshTabsNextRun = true;
-              await addLog(
-                `无试用套餐自动重试：${Math.round(AUTO_RUN_RETRY_DELAY_MS / 1000)} 秒后换新邮箱，开始第 ${targetRun}/${totalRuns} 轮第 ${attemptRun + 1} 次尝试（第 ${retryIndex}/${AUTO_RUN_MAX_RETRIES_PER_ROUND} 次重试）。`,
-                'warn'
-              );
-              try {
-                await sleepWithStop(AUTO_RUN_RETRY_DELAY_MS);
-              } catch (sleepError) {
-                if (isStopError(sleepError)) {
-                  stoppedEarly = true;
-                  await appendRoundRecordIfNeeded('stopped', getErrorMessage(sleepError), sleepError);
-                  await addLog(`第 ${targetRun}/${totalRuns} 轮已被用户停止`, 'warn');
-                  await broadcastAutoRunStatus('stopped', {
-                    currentRun: targetRun,
-                    totalRuns,
-                    attemptRun,
-                    sessionId: 0,
-                  });
-                  break;
-                }
-                throw sleepError;
-              }
-              try {
-                const parkedForRetry = await waitBeforeAutoRunRetry(targetRun, totalRuns, attemptRun + 1, {
-                  autoRunSkipFailures,
-                  autoRunRetryNonFreeTrial,
-                  autoRunRetryPaypalCallback,
-                  roundSummaries,
-                });
-                if (parkedForRetry) {
-                  parkedByTimer = true;
-                  break;
-                }
-              } catch (sleepError) {
-                if (isStopError(sleepError)) {
-                  stoppedEarly = true;
-                  await appendRoundRecordIfNeeded('stopped', getErrorMessage(sleepError), sleepError);
-                  await addLog(`第 ${targetRun}/${totalRuns} 轮已被用户停止`, 'warn');
-                  await broadcastAutoRunStatus('stopped', {
-                    currentRun: targetRun,
-                    totalRuns,
-                    attemptRun,
-                    sessionId: 0,
-                  });
-                  break;
-                }
-                throw sleepError;
-              }
-              attemptRun += 1;
-              reuseExistingProgress = false;
-              continue;
-            }
-
-            if (retryableHostedCheckoutGenericError) {
-              const retryIndex = attemptRun;
-              await addLog(`第 ${targetRun}/${totalRuns} 轮第 ${attemptRun} 次尝试遇到 PayPal Checkout 异常：${reason}`, 'warn');
-              cancelPendingCommands('当前尝试因 PayPal Checkout 异常已放弃。');
-              await broadcastStopToContentScripts();
-              await broadcastAutoRunStatus('retrying', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId,
-              });
-              forceFreshTabsNextRun = true;
-              await addLog(
-                `PayPal Checkout 异常自动重试：${Math.round(AUTO_RUN_RETRY_DELAY_MS / 1000)} 秒后换新邮箱，开始第 ${targetRun}/${totalRuns} 轮第 ${attemptRun + 1} 次尝试（第 ${retryIndex}/${AUTO_RUN_MAX_RETRIES_PER_ROUND} 次重试）。`,
-                'warn'
-              );
-              try {
-                await sleepWithStop(AUTO_RUN_RETRY_DELAY_MS);
-              } catch (sleepError) {
-                if (isStopError(sleepError)) {
-                  stoppedEarly = true;
-                  await appendRoundRecordIfNeeded('stopped', getErrorMessage(sleepError), sleepError);
-                  await addLog(`第 ${targetRun}/${totalRuns} 轮已被用户停止`, 'warn');
-                  await broadcastAutoRunStatus('stopped', {
-                    currentRun: targetRun,
-                    totalRuns,
-                    attemptRun,
-                    sessionId: 0,
-                  });
-                  break;
-                }
-                throw sleepError;
-              }
-              try {
-                const parkedForRetry = await waitBeforeAutoRunRetry(targetRun, totalRuns, attemptRun + 1, {
-                  autoRunSkipFailures,
-                  autoRunRetryNonFreeTrial,
-                  autoRunRetryPaypalCallback,
-                  roundSummaries,
-                });
-                if (parkedForRetry) {
-                  parkedByTimer = true;
-                  break;
-                }
-              } catch (sleepError) {
-                if (isStopError(sleepError)) {
-                  stoppedEarly = true;
-                  await appendRoundRecordIfNeeded('stopped', getErrorMessage(sleepError), sleepError);
-                  await addLog(`第 ${targetRun}/${totalRuns} 轮已被用户停止`, 'warn');
-                  await broadcastAutoRunStatus('stopped', {
-                    currentRun: targetRun,
-                    totalRuns,
-                    attemptRun,
-                    sessionId: 0,
-                  });
-                  break;
-                }
-                throw sleepError;
-              }
-              attemptRun += 1;
-              reuseExistingProgress = false;
-              continue;
-            }
-
-            if (retryableHostedCheckoutCardFallback) {
-              const retryIndex = attemptRun;
-              await addLog(`第 ${targetRun}/${totalRuns} 轮第 ${attemptRun} 次尝试落到银行卡分支：${reason}`, 'warn');
-              cancelPendingCommands('当前尝试因 hosted checkout 落到银行卡分支已放弃。');
-              await broadcastStopToContentScripts();
-              await broadcastAutoRunStatus('retrying', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId,
-              });
-              forceFreshTabsNextRun = true;
-              await addLog(
-                `hosted checkout 银行卡分支默认自动重试：${Math.round(AUTO_RUN_RETRY_DELAY_MS / 1000)} 秒后换新邮箱，开始第 ${targetRun}/${totalRuns} 轮第 ${attemptRun + 1} 次尝试（第 ${retryIndex}/${AUTO_RUN_MAX_RETRIES_PER_ROUND} 次重试）。`,
-                'warn'
-              );
-              try {
-                await sleepWithStop(AUTO_RUN_RETRY_DELAY_MS);
-              } catch (sleepError) {
-                if (isStopError(sleepError)) {
-                  stoppedEarly = true;
-                  await appendRoundRecordIfNeeded('stopped', getErrorMessage(sleepError), sleepError);
-                  await addLog(`第 ${targetRun}/${totalRuns} 轮已被用户停止`, 'warn');
-                  await broadcastAutoRunStatus('stopped', {
-                    currentRun: targetRun,
-                    totalRuns,
-                    attemptRun,
-                    sessionId: 0,
-                  });
-                  break;
-                }
-                throw sleepError;
-              }
-              try {
-                const parkedForRetry = await waitBeforeAutoRunRetry(targetRun, totalRuns, attemptRun + 1, {
-                  autoRunSkipFailures,
-                  autoRunRetryNonFreeTrial,
-                  autoRunRetryPaypalCallback,
-                  roundSummaries,
-                });
-                if (parkedForRetry) {
-                  parkedByTimer = true;
-                  break;
-                }
-              } catch (sleepError) {
-                if (isStopError(sleepError)) {
-                  stoppedEarly = true;
-                  await appendRoundRecordIfNeeded('stopped', getErrorMessage(sleepError), sleepError);
-                  await addLog(`第 ${targetRun}/${totalRuns} 轮已被用户停止`, 'warn');
-                  await broadcastAutoRunStatus('stopped', {
-                    currentRun: targetRun,
-                    totalRuns,
-                    attemptRun,
-                    sessionId: 0,
-                  });
-                  break;
-                }
-                throw sleepError;
-              }
-              attemptRun += 1;
-              reuseExistingProgress = false;
-              continue;
-            }
 
             if (blockedByAddPhone) {
               roundSummary.status = 'failed';
@@ -1004,176 +745,6 @@
                 autoRunSkipFailures
                   ? `第 ${targetRun}/${totalRuns} 轮接码号池暂无可用号码。该状态属于全局资源耗尽，已忽略“自动重试/跳过失败继续下一轮”并停止自动运行。`
                   : `第 ${targetRun}/${totalRuns} 轮接码号池暂无可用号码，当前自动运行将停止。`,
-                'warn'
-              );
-              stoppedEarly = true;
-              await broadcastAutoRunStatus('stopped', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId: 0,
-              });
-              break;
-            }
-
-            if (blockedByPlusNonFreeTrial) {
-              roundSummary.status = 'failed';
-              roundSummary.finalFailureReason = reason;
-              await setState({
-                autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
-              });
-              await appendRoundRecordIfNeeded('failed', reason, err);
-              cancelPendingCommands('当前轮因 Plus 免费试用资格不可用已终止。');
-              await broadcastStopToContentScripts();
-              if (!autoRunSkipFailures) {
-                await addLog(
-                  autoRunRetryNonFreeTrial
-                    ? `第 ${targetRun}/${totalRuns} 轮检测到 Plus 今日应付金额非 0，已达到无试用套餐自动重试上限，当前自动运行将停止。`
-                    : `第 ${targetRun}/${totalRuns} 轮检测到 Plus 今日应付金额非 0，自动重试未开启，当前自动运行将停止。`,
-                  'warn'
-                );
-                stoppedEarly = true;
-                await broadcastAutoRunStatus('stopped', {
-                  currentRun: targetRun,
-                  totalRuns,
-                  attemptRun,
-                  sessionId: 0,
-                });
-                break;
-              }
-
-              await addLog(`第 ${targetRun}/${totalRuns} 轮没有 Plus 免费试用资格，本轮将直接失败并跳过剩余重试。`, 'warn');
-              await addLog(
-                targetRun < totalRuns
-                  ? `第 ${targetRun}/${totalRuns} 轮因 Plus 今日应付金额非 0 提前结束，自动流程将继续下一轮。`
-                  : `第 ${targetRun}/${totalRuns} 轮因 Plus 今日应付金额非 0 提前结束，已无后续轮次，本次自动运行结束。`,
-                'warn'
-              );
-              forceFreshTabsNextRun = true;
-              break;
-            }
-
-            if (blockedByGpcTaskEnded) {
-              roundSummary.status = 'failed';
-              roundSummary.finalFailureReason = reason;
-              await setState({
-                autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
-              });
-              await appendRoundRecordIfNeeded('failed', reason, err);
-              cancelPendingCommands('当前轮因 GPC 任务已结束。');
-              await broadcastStopToContentScripts();
-              if (!autoRunSkipFailures) {
-                await addLog(
-                  `第 ${targetRun}/${totalRuns} 轮 GPC 任务已结束，自动重试未开启，当前自动运行将停止。`,
-                  'warn'
-                );
-                stoppedEarly = true;
-                await broadcastAutoRunStatus('stopped', {
-                  currentRun: targetRun,
-                  totalRuns,
-                  attemptRun,
-                  sessionId: 0,
-                });
-                break;
-              }
-
-              await addLog(`第 ${targetRun}/${totalRuns} 轮 GPC 任务已结束，本轮将直接失败并跳过剩余重试。`, 'warn');
-              await addLog(
-                targetRun < totalRuns
-                  ? `第 ${targetRun}/${totalRuns} 轮因 GPC 任务结束提前结束，自动流程将继续下一轮。`
-                  : `第 ${targetRun}/${totalRuns} 轮因 GPC 任务结束提前结束，已无后续轮次，本次自动运行结束。`,
-                'warn'
-              );
-              forceFreshTabsNextRun = true;
-              break;
-            }
-
-            if (blockedByHostedCheckoutGenericError) {
-              roundSummary.status = 'failed';
-              roundSummary.finalFailureReason = reason;
-              await setState({
-                autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
-              });
-              await appendRoundRecordIfNeeded('failed', reason, err);
-              cancelPendingCommands(
-                autoRunRetryPaypalCallback
-                  ? '当前轮因 PayPal Checkout genericError 已达到自动重试上限。'
-                  : '当前轮因 PayPal Checkout genericError 已终止，等待用户选择检查或重试。'
-              );
-              await broadcastStopToContentScripts();
-              await addLog(
-                autoRunRetryPaypalCallback
-                  ? `第 ${targetRun}/${totalRuns} 轮检测到 PayPal Checkout genericError，已达到 PAYPAL回调自动重试上限，当前自动运行将停止。`
-                  : `第 ${targetRun}/${totalRuns} 轮检测到 PayPal Checkout genericError，当前自动运行已停止，请在弹窗中选择“检查”或“重试”。`,
-                'warn'
-              );
-              stoppedEarly = true;
-              await broadcastAutoRunStatus('stopped', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId: 0,
-              });
-              break;
-            }
-
-            if (blockedByHostedCheckoutCardFallback) {
-              roundSummary.status = 'failed';
-              roundSummary.finalFailureReason = reason;
-              await setState({
-                autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
-              });
-              await appendRoundRecordIfNeeded('failed', reason, err);
-              cancelPendingCommands('当前轮因 hosted checkout 连续落到银行卡分支已终止。');
-              await broadcastStopToContentScripts();
-              await addLog(
-                `第 ${targetRun}/${totalRuns} 轮检测到 hosted checkout 连续落到银行卡分支，已达到默认自动重试上限，当前自动运行将停止。`,
-                'warn'
-              );
-              stoppedEarly = true;
-              await broadcastAutoRunStatus('stopped', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId: 0,
-              });
-              break;
-            }
-
-            if (blockedByHostedCheckoutVerificationResendLimit) {
-              roundSummary.status = 'failed';
-              roundSummary.finalFailureReason = reason;
-              await setState({
-                autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
-              });
-              await appendRoundRecordIfNeeded('failed', reason, err);
-              cancelPendingCommands('当前轮因 PayPal 验证码自动 Resend 达到上限已终止。');
-              await broadcastStopToContentScripts();
-              await addLog(
-                `第 ${targetRun}/${totalRuns} 轮 PayPal 验证码自动 Resend 已达到上限，当前自动运行已停止；请尝试在页面手动获取验证码并填入。`,
-                'warn'
-              );
-              stoppedEarly = true;
-              await broadcastAutoRunStatus('stopped', {
-                currentRun: targetRun,
-                totalRuns,
-                attemptRun,
-                sessionId: 0,
-              });
-              break;
-            }
-
-            if (blockedByCloudCheckoutAlreadyPaid) {
-              roundSummary.status = 'failed';
-              roundSummary.finalFailureReason = reason;
-              await setState({
-                autoRunRoundSummaries: serializeAutoRunRoundSummaries(totalRuns, roundSummaries),
-              });
-              await appendRoundRecordIfNeeded('failed', reason, err);
-              cancelPendingCommands('当前轮因云端确认账号已开通 Plus，已停止自动重试。');
-              await broadcastStopToContentScripts();
-              await addLog(
-                `第 ${targetRun}/${totalRuns} 轮云端返回 User is already paid，当前自动运行已停止，请检查 PLUS 是否已经开通。`,
                 'warn'
               );
               stoppedEarly = true;

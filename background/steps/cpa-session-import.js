@@ -1,8 +1,8 @@
 (function attachBackgroundCpaSessionImport(root, factory) {
   root.MultiPageBackgroundCpaSessionImport = factory();
 })(typeof self !== 'undefined' ? self : globalThis, function createBackgroundCpaSessionImportModule() {
-  const PLUS_CHECKOUT_SOURCE = 'plus-checkout';
-  const PLUS_CHECKOUT_INJECT_FILES = ['content/utils.js', 'content/operation-delay.js', 'content/plus-checkout.js'];
+  const CHATGPT_SESSION_SOURCE = 'signup-page';
+  const CHATGPT_SESSION_INJECT_FILES = ['content/utils.js', 'content/operation-delay.js', 'content/auth-page-recovery.js', 'content/phone-country-utils.js', 'content/phone-auth.js', 'content/signup-page.js'];
   const SESSION_IMPORT_MAX_ATTEMPTS = 3;
   const SESSION_IMPORT_RETRY_DELAYS_MS = [3000, 7000];
   const SESSION_TAB_COMPLETE_TIMEOUT_MS = 60000;
@@ -200,9 +200,9 @@
 
     async function resolveSessionTabId(state = {}) {
       const registeredTabId = typeof getTabId === 'function'
-        ? await getTabId(PLUS_CHECKOUT_SOURCE)
+        ? await getTabId(CHATGPT_SESSION_SOURCE)
         : null;
-      if (registeredTabId && typeof isTabAlive === 'function' && await isTabAlive(PLUS_CHECKOUT_SOURCE)) {
+      if (registeredTabId && typeof isTabAlive === 'function' && await isTabAlive(CHATGPT_SESSION_SOURCE)) {
         const registeredTab = await readSupportedSessionTab(registeredTabId);
         if (registeredTab?.id) {
           return registeredTab.id;
@@ -213,7 +213,7 @@
       const storedTab = await readSupportedSessionTab(storedTabId);
       if (storedTab?.id) {
         if (typeof registerTab === 'function') {
-          await registerTab(PLUS_CHECKOUT_SOURCE, storedTab.id);
+          await registerTab(CHATGPT_SESSION_SOURCE, storedTab.id);
         }
         return storedTab.id;
       }
@@ -221,12 +221,12 @@
       const fallbackTab = await findFallbackSessionTab();
       if (fallbackTab?.id) {
         if (typeof registerTab === 'function') {
-          await registerTab(PLUS_CHECKOUT_SOURCE, fallbackTab.id);
+          await registerTab(CHATGPT_SESSION_SOURCE, fallbackTab.id);
         }
         return fallbackTab.id;
       }
 
-      throw new Error('未找到可读取 ChatGPT 会话的标签页，请先打开一个已登录的 ChatGPT / OpenAI 页面，或完成当前 Plus 支付链路。');
+      throw new Error('未找到可读取 ChatGPT 会话的标签页，请先打开一个已登录的 ChatGPT / OpenAI 页面。');
     }
 
     async function getResolvedSessionTab(tabId, visibleStep) {
@@ -246,21 +246,18 @@
         retryDelayMs: 300,
       });
       await sleepWithStop(1000);
-      await ensureContentScriptReadyOnTabUntilStopped(PLUS_CHECKOUT_SOURCE, tabId, {
-        inject: PLUS_CHECKOUT_INJECT_FILES,
-        injectSource: PLUS_CHECKOUT_SOURCE,
+      await ensureContentScriptReadyOnTabUntilStopped(CHATGPT_SESSION_SOURCE, tabId, {
+        inject: CHATGPT_SESSION_INJECT_FILES,
+        injectSource: CHATGPT_SESSION_SOURCE,
         timeoutMs: SESSION_CONTENT_READY_TIMEOUT_MS,
         retryDelayMs: 700,
         logMessage: `步骤 ${visibleStep}：正在等待 ChatGPT 会话页完成加载，再继续读取当前登录会话...`,
       });
 
-      const sessionResult = await sendTabMessageUntilStopped(tabId, PLUS_CHECKOUT_SOURCE, {
-        type: 'PLUS_CHECKOUT_GET_STATE',
+      const sessionResult = await sendTabMessageUntilStopped(tabId, CHATGPT_SESSION_SOURCE, {
+        type: 'READ_CHATGPT_SESSION_EXPORT_DATA',
         source: 'background',
-        payload: {
-          includeSession: true,
-          includeAccessToken: true,
-        },
+        payload: { visibleStep },
       }, {
         timeoutMs: SESSION_READ_MESSAGE_TIMEOUT_MS,
         responseTimeoutMs: SESSION_READ_RESPONSE_TIMEOUT_MS,
